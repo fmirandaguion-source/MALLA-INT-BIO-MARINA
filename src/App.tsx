@@ -6,11 +6,15 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CURRICULUM, CATEGORIES, Subject } from './data/curriculum';
-import { Info, BookOpen, CheckCircle2, ArrowRight, GraduationCap, Moon, Sun, Layers } from 'lucide-react';
+import { Info, BookOpen, CheckCircle2, ArrowRight, GraduationCap, Moon, Sun, Layers, Download, FileText } from 'lucide-react';
 
 export default function App() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true); // Dark mode by default
+  const [activeTab, setActiveTab] = useState<'details' | 'legend'>('details');
+
+  const activeId = hoveredId || selectedId;
 
   useEffect(() => {
     // Apply to both html and body for maximum compatibility
@@ -78,66 +82,110 @@ export default function App() {
   };
 
   const currentAllPrereqs = useMemo(() => {
-    if (!hoveredId) return [];
-    return getAllPrerequisites(hoveredId);
-  }, [hoveredId]);
+    if (!activeId) return [];
+    return getAllPrerequisites(activeId);
+  }, [activeId]);
 
   const currentDirectPrereqs = useMemo(() => {
-    if (!hoveredId) return [];
-    return getDirectPrerequisites(hoveredId);
-  }, [hoveredId]);
+    if (!activeId) return [];
+    return getDirectPrerequisites(activeId);
+  }, [activeId]);
 
   const currentUnlockables = useMemo(() => {
-    if (!hoveredId) return [];
-    return getUnlockables(hoveredId);
-  }, [hoveredId]);
+    if (!activeId) return [];
+    return getUnlockables(activeId);
+  }, [activeId]);
 
-  const hoveredSubject = useMemo(() => {
-    return CURRICULUM.find(s => s.id === hoveredId);
-  }, [hoveredId]);
+  const displaySubject = useMemo(() => {
+    return CURRICULUM.find(s => s.id === activeId);
+  }, [activeId]);
+
+  const downloadSubjectDetail = () => {
+    if (!displaySubject) return;
+
+    const prereqs = currentAllPrereqs.map(pid => {
+      const s = CURRICULUM.find(x => x.id === pid);
+      return `- [${pid}] ${s?.name || pid}${currentDirectPrereqs.includes(pid) ? ' (Directo)' : ''}`;
+    }).join('\n');
+
+    const unlockables = currentUnlockables.map(uid => {
+      const s = CURRICULUM.find(x => x.id === uid);
+      return `- [${uid}] ${s?.name || uid}`;
+    }).join('\n');
+
+    const content = `
+FICHA TÉCNICA DE ASIGNATURA
+---------------------------
+CÓDIGO: ${displaySubject.id}
+NOMBRE: ${displaySubject.name}
+SEMESTRE: ${displaySubject.semester}
+CATEGORÍA: ${CATEGORIES[displaySubject.category].label}
+
+CADENA DE REQUISITOS:
+${prereqs || 'Sin requisitos previos'}
+
+HABILITA A:
+${unlockables || 'No habilita asignaturas directas'}
+
+REGLAS ESPECIALES:
+${displaySubject.specialRules || 'Ninguna'}
+
+---------------------------
+Generado por: Sistema de Gestión Curricular Biología Marina 2024
+Fecha: ${new Date().toLocaleDateString()}
+    `.trim();
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Detalle_${displaySubject.id}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className={`${isDarkMode ? 'dark' : ''} min-h-screen bg-[#f8fafc] dark:bg-[#020617] text-slate-900 dark:text-slate-100 font-sans p-4 md:p-8 transition-colors duration-500 selection:bg-blue-500/30`}>
-      <div className="max-w-[1700px] mx-auto">
-        <header className="mb-16 flex flex-col items-center relative">
+    <div className={`${isDarkMode ? 'dark' : ''} h-screen bg-[#f8fafc] dark:bg-[#020617] text-slate-900 dark:text-slate-100 font-sans p-2 md:p-4 transition-colors duration-500 selection:bg-blue-500/30 flex flex-col overflow-hidden`}>
+      <div className="max-w-full mx-auto w-full flex flex-col h-full">
+        <header className="mb-4 flex flex-col items-center relative shrink-0">
           <div className="absolute right-0 top-0 z-50">
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-3 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-2xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all active:scale-95 flex items-center gap-2 group"
+              className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all active:scale-95 flex items-center gap-2 group"
               aria-label="Toggle Dark Mode"
             >
-              <div className="relative w-5 h-5">
-                <Sun className={`absolute inset-0 transition-all duration-500 ${isDarkMode ? 'rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'}`} size={20} />
-                <Moon className={`absolute inset-0 transition-all duration-500 ${isDarkMode ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'}`} size={20} />
+              <div className="relative w-4 h-4">
+                <Sun className={`absolute inset-0 transition-all duration-500 ${isDarkMode ? 'rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'}`} size={16} />
+                <Moon className={`absolute inset-0 transition-all duration-500 ${isDarkMode ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'}`} size={16} />
               </div>
-              <span className="text-xs font-black hidden sm:inline uppercase tracking-widest">{isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
+              <span className="text-[10px] font-black hidden sm:inline uppercase tracking-widest">{isDarkMode ? 'Claro' : 'Oscuro'}</span>
             </button>
           </div>
 
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6 border border-blue-500/20"
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[8px] font-black uppercase tracking-[0.2em] mb-2 border border-blue-500/20"
           >
-            <GraduationCap size={14} />
+            <GraduationCap size={12} />
             Plan de Estudios Biología Marina 2024
           </motion.div>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 dark:text-white mb-6 text-center">
-            Malla <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">Interactiva</span>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tighter text-slate-900 dark:text-white mb-1 text-center">
+            Malla <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">Interactiva</span> Biología Marina
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto text-lg text-center font-medium leading-relaxed">
-            Visualiza la cadena completa de requisitos y proyecta tu avance académico con precisión.
-          </p>
+          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Escuela de Ciencias del Mar PUCV</p>
         </header>
 
-        <main className="overflow-x-auto pb-12 scrollbar-thin">
-          <div className="flex gap-6 min-w-max px-4">
+        <main className="flex-1 overflow-hidden flex flex-col min-h-0">
+          <div className="flex gap-1 h-full justify-between">
             {semesters.map(([semester, subjects]) => (
-              <div key={semester} className="flex flex-col gap-6 w-60">
-                <div className="text-center py-3 border-b-4 border-slate-200 dark:border-slate-800">
-                  <span className="text-xs font-black text-slate-400 dark:text-slate-700 uppercase tracking-[0.3em]">Semestre {semester}</span>
+              <div key={semester} className="flex flex-col gap-1 flex-1 min-w-0">
+                <div className="text-center py-1 border-b-2 border-slate-200 dark:border-slate-800 shrink-0">
+                  <span className="text-[8px] font-black text-slate-400 dark:text-slate-700 uppercase tracking-widest">S{semester}</span>
                 </div>
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1 overflow-y-auto no-scrollbar pb-2">
                   {subjects.map((subject) => {
                     const isHovered = hoveredId === subject.id;
                     const isPrereq = currentAllPrereqs.includes(subject.id);
@@ -150,49 +198,35 @@ export default function App() {
                         key={subject.id}
                         onMouseEnter={() => setHoveredId(subject.id)}
                         onMouseLeave={() => setHoveredId(null)}
+                        onClick={() => {
+                          setSelectedId(selectedId === subject.id ? null : subject.id);
+                          setActiveTab('details');
+                        }}
                         layoutId={subject.id}
                         className={`
-                          relative p-5 rounded-2xl border-2 transition-all duration-500 cursor-help h-40 flex flex-col justify-between
-                          ${isHovered ? 'scale-110 z-30 shadow-[0_25px_60px_-15px_rgba(37,99,235,0.4)] border-blue-500 bg-white dark:bg-slate-800 ring-8 ring-blue-500/10' : 'bg-white dark:bg-slate-900/40 dark:backdrop-blur-md shadow-sm border-slate-100 dark:border-slate-800/50'}
-                          ${isPrereq ? 'border-amber-500/50 bg-amber-100 dark:bg-amber-950/90 ring-8 ring-amber-500/5 z-10' : ''}
-                          ${isDirectPrereq ? 'border-amber-500 dark:border-amber-400 bg-amber-200 dark:bg-amber-900/80 shadow-[0_0_25px_rgba(245,158,11,0.3)] z-20' : ''}
-                          ${isUnlockable ? 'border-emerald-500 bg-emerald-100 dark:bg-emerald-950/90 ring-8 ring-emerald-500/5 z-10' : ''}
-                          ${!isHovered && !isPrereq && !isUnlockable && hoveredId ? 'opacity-10 grayscale blur-[2px]' : 'opacity-100'}
+                          relative p-2 rounded-lg border transition-all duration-300 cursor-pointer min-h-[70px] flex flex-col justify-between
+                          ${isHovered || selectedId === subject.id ? 'z-30 shadow-lg border-blue-500 bg-white dark:bg-slate-800 ring-2 ring-blue-500/20' : 'bg-white dark:bg-slate-900/40 dark:backdrop-blur-md shadow-sm border-slate-100 dark:border-slate-800/50'}
+                          ${isPrereq ? 'border-amber-500/50 bg-amber-100 dark:bg-amber-950/90 z-10' : ''}
+                          ${isDirectPrereq ? 'border-amber-500 dark:border-amber-400 bg-amber-200 dark:bg-amber-900/80 shadow-md z-20' : ''}
+                          ${isUnlockable ? 'border-emerald-500 bg-emerald-100 dark:bg-emerald-950/90 z-10' : ''}
+                          ${!isHovered && selectedId !== subject.id && !isPrereq && !isUnlockable && activeId ? 'opacity-20 grayscale' : 'opacity-100'}
+                          ${selectedId === subject.id ? 'ring-2 ring-blue-500' : ''}
                         `}
                       >
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex justify-between items-start gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex justify-between items-start gap-1">
+                            <span className="text-[7px] font-bold text-slate-400 dark:text-slate-500 uppercase">
                               {subject.id}
                             </span>
-                            {isPrereq && (
-                              <motion.span 
-                                initial={{ opacity: 0, y: -5 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className={`text-[9px] font-black px-2 py-0.5 rounded-md shadow-sm uppercase tracking-tighter whitespace-nowrap ${isDirectPrereq ? 'bg-amber-600 text-white' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30'}`}
-                              >
-                                {isDirectPrereq ? 'Debe estar cursada' : 'Requisito previo'}
-                              </motion.span>
-                            )}
                           </div>
-                          <h3 className="text-sm font-bold leading-tight text-slate-800 dark:text-slate-100 line-clamp-3">
+                          <h3 className="text-[9px] font-bold leading-tight text-slate-800 dark:text-slate-100 line-clamp-2">
                             {subject.name}
                           </h3>
                         </div>
                         
-                        <div className={`mt-2 px-2 py-0.5 rounded text-[11px] font-bold inline-block w-fit ${category.color}`}>
-                          {category.label}
+                        <div className={`mt-1 px-1 py-0.5 rounded-[2px] text-[7px] font-black inline-block w-fit ${category.color}`}>
+                          {category.label.split(' ')[0]}
                         </div>
-
-                        {isHovered && (
-                          <motion.div 
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="absolute -top-2 -right-2 bg-blue-600 text-white p-1.5 rounded-full shadow-lg"
-                          >
-                            <Info size={14} />
-                          </motion.div>
-                        )}
                       </motion.div>
                     );
                   })}
@@ -202,122 +236,134 @@ export default function App() {
           </div>
         </main>
 
-        {/* Legend & Info Panel */}
-        <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <section className="lg:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
-            <h2 className="text-xl font-black mb-6 flex items-center gap-2 dark:text-white">
-              <BookOpen className="text-blue-600 dark:text-blue-400" />
-              Detalles de la Asignatura
-            </h2>
-            
-            <AnimatePresence mode="wait">
-              {hoveredSubject ? (
-                <motion.div
-                  key={hoveredSubject.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs font-mono font-bold dark:text-slate-300">{hoveredSubject.id}</span>
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${CATEGORIES[hoveredSubject.category].color}`}>
-                        {CATEGORIES[hoveredSubject.category].label}
-                      </span>
-                    </div>
-                    <h3 className="text-3xl font-black text-slate-900 dark:text-white">{hoveredSubject.name}</h3>
-                  </div>
+        {/* Legend & Info Panel Tabs */}
+        <div className="mt-2 shrink-0">
+          <div className="flex gap-2 mb-2">
+            <button
+              onClick={() => setActiveTab('details')}
+              className={`px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'details' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
+            >
+              <BookOpen size={14} />
+              Detalles
+            </button>
+            <button
+              onClick={() => setActiveTab('legend')}
+              className={`px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'legend' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-white dark:bg-slate-900 text-slate-400 border border-slate-100 dark:border-slate-800'}`}
+            >
+              <Layers size={14} />
+              Leyenda
+            </button>
+          </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-amber-500" />
-                        Cadena de Requisitos
+          <AnimatePresence mode="wait">
+            {activeTab === 'details' ? (
+              <motion.section
+                key="details"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 h-40 overflow-y-auto"
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-sm font-black flex items-center gap-2 dark:text-white uppercase tracking-widest">
+                    <BookOpen className="text-blue-600 dark:text-blue-400" size={16} />
+                    Análisis {selectedId && <span className="text-[8px] font-bold px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded ml-2">Seleccionado</span>}
+                  </h2>
+                  {displaySubject && (
+                    <button
+                      onClick={downloadSubjectDetail}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95"
+                    >
+                      <Download size={12} />
+                      Descargar
+                    </button>
+                  )}
+                </div>
+                
+                {displaySubject ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="border-l-4 border-blue-600 dark:border-blue-500 pl-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[8px] font-black dark:text-slate-300">{displaySubject.id}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${CATEGORIES[displaySubject.category].color}`}>
+                          {CATEGORIES[displaySubject.category].label}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">{displaySubject.name}</h3>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                        <CheckCircle2 size={12} className="text-amber-500" />
+                        Requisitos
                       </h4>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1">
                         {currentAllPrereqs.length > 0 ? (
                           currentAllPrereqs.map(pid => {
                             const p = CURRICULUM.find(s => s.id === pid);
                             const isDirect = currentDirectPrereqs.includes(pid);
                             return (
-                              <span key={pid} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${isDirect ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'}`}>
+                              <div key={pid} className={`px-2 py-0.5 rounded-md text-[9px] font-bold border ${isDirect ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/50' : 'bg-slate-50 dark:bg-slate-800/30 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-slate-800/30'}`}>
                                 {p?.name || pid}
-                                {isDirect && <span className="ml-1.5 text-[10px] opacity-60">(Directo)</span>}
-                              </span>
+                              </div>
                             );
                           })
                         ) : (
-                          <span className="text-slate-400 dark:text-slate-600 text-sm italic">Sin requisitos previos</span>
+                          <div className="text-slate-400 text-[9px] italic">Sin requisitos.</div>
                         )}
                       </div>
-                      {hoveredSubject.specialRules && (
-                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl text-blue-700 dark:text-blue-300 text-xs font-medium">
-                          <strong>Regla Especial:</strong> {hoveredSubject.specialRules}
-                        </div>
-                      )}
                     </div>
 
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <ArrowRight size={16} className="text-emerald-500" />
-                        Habilita a
+                    <div className="space-y-2">
+                      <h4 className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                        <ArrowRight size={12} className="text-emerald-500" />
+                        Habilita
                       </h4>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1">
                         {currentUnlockables.length > 0 ? (
                           currentUnlockables.map(uid => {
                             const u = CURRICULUM.find(s => s.id === uid);
                             return (
-                              <span key={uid} className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold border border-emerald-200 dark:border-emerald-800">
+                              <div key={uid} className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 rounded-md text-[9px] font-bold border border-emerald-200 dark:border-emerald-800/50">
                                 {u?.name}
-                              </span>
+                              </div>
                             );
                           })
                         ) : (
-                          <span className="text-slate-400 dark:text-slate-600 text-sm italic">No habilita asignaturas directas</span>
+                          <div className="text-slate-400 text-[9px] italic">No habilita directas.</div>
                         )}
                       </div>
                     </div>
                   </div>
-                </motion.div>
-              ) : (
-                <div className="h-48 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
-                  <Info size={32} className="mb-2 opacity-20" />
-                  <p>Pasa el cursor sobre una asignatura para ver sus detalles</p>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-700 border-2 border-dashed border-slate-50 dark:border-slate-900 rounded-2xl">
+                    <p className="font-bold text-xs">Selecciona una asignatura para analizar</p>
+                  </div>
+                )}
+              </motion.section>
+            ) : (
+              <motion.section
+                key="legend"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="bg-slate-950 p-4 rounded-3xl shadow-xl text-white border border-slate-800 h-40 overflow-y-auto"
+              >
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Object.entries(CATEGORIES).map(([key, cat]) => (
+                    <div key={key} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-white/5 transition-colors">
+                      <div className={`w-3 h-3 rounded shadow-lg ${cat.color.split(' ')[0]}`} />
+                      <span className="text-[8px] font-bold text-slate-400">{cat.label}</span>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </AnimatePresence>
-          </section>
-
-          <section className="bg-slate-900 dark:bg-slate-950 p-8 rounded-3xl shadow-xl text-white border border-slate-800">
-            <h2 className="text-xl font-black mb-6 flex items-center gap-2">
-              <Layers size={20} className="text-blue-400" />
-              Leyenda
-            </h2>
-            <div className="space-y-4">
-              {Object.entries(CATEGORIES).map(([key, cat]) => (
-                <div key={key} className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded shadow-inner ${cat.color.split(' ')[0]}`} />
-                  <span className="text-sm font-medium text-slate-300 dark:text-slate-400">{cat.label}</span>
-                </div>
-              ))}
-              <hr className="border-slate-800 my-4" />
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 rounded border-2 border-amber-500 bg-amber-50 dark:bg-amber-900/20" />
-                  <span className="text-sm font-medium text-slate-300 dark:text-slate-400">Prerrequisito Directo</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 rounded border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20" />
-                  <span className="text-sm font-medium text-slate-300 dark:text-slate-400">Habilita Asignaturas</span>
-                </div>
-              </div>
-            </div>
-          </section>
+              </motion.section>
+            )}
+          </AnimatePresence>
         </div>
 
-        <footer className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-800 text-center text-slate-400 dark:text-slate-600 text-sm pb-12">
-          <p>© 2026 Universidad de Biología Marina - Sistema de Gestión Curricular</p>
+        <footer className="mt-2 text-center text-slate-400 dark:text-slate-600 text-[8px] pb-2 shrink-0">
+          <p>© 2026 Universidad de Biología Marina</p>
         </footer>
       </div>
     </div>
